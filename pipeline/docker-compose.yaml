@@ -11,23 +11,72 @@ services:
     ports:
       - "5432:5432"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d ny_taxi"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
 
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: root
-      PGADMIN_CONFIG_PROXY_X_FOR_COUNT: 1
-      PGADMIN_CONFIG_PROXY_X_HOST_COUNT: 1
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com 
+      PGADMIN_DEFAULT_PASSWORD: root 
+      PGADMIN_CONFIG_PROXY_X_FOR_COUNT: 1 
+      PGADMIN_CONFIG_PROXY_X_HOST_COUNT: 1 
       PGADMIN_CONFIG_PROXY_X_PREFIX_COUNT: 1
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     ports:
       - "8085:80"
     depends_on:
-      - pgdatabase
+      pgdatabase:
+        condition: service_healthy
     restart: unless-stopped
+
+  taxi_ingest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: taxi_ingest:v001
+
+  zones_loader:
+    image: taxi_ingest:v001
+    container_name: zones_loader
+    depends_on:
+      pgdatabase:
+        condition: service_healthy
+    entrypoint: ["uv", "run", "python", "zones.py"]
+    command:
+      - "--pg-user=root"
+      - "--pg-pass=root"
+      - "--pg-host=pgdatabase"
+      - "--pg-port=5432"
+      - "--pg-db=ny_taxi"
+      - "--table=taxi_zones"
+      - "--if-exists=replace"
+      - "--create-pk"
+    restart: "no"
+
+  yellow_loader:
+    image: taxi_ingest:v001
+    container_name: yellow_loader
+    depends_on:
+      pgdatabase:
+        condition: service_healthy
+      zones_loader:
+        condition: service_completed_successfully
+    entrypoint: ["uv", "run", "python", "ingest_data.py"]
+    command:
+      - "--pg-user=root"
+      - "--pg-pass=root"
+      - "--pg-host=pgdatabase"
+      - "--pg-port=5432"
+      - "--pg-db=ny_taxi"
+      - "--target-table=yellow_taxi"
+      - "--chunksize=100000"
+    restart: "no"
 
 volumes:
   ny_taxi_postgres_data:

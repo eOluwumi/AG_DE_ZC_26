@@ -2,21 +2,24 @@
 FROM python:3.13.11-slim
 
 # Copy uv binary from official uv image
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 # Set working directory inside container
 WORKDIR /app
 
-# Add virtual environment to PATH
+# Make uv create the venv inside /app and make it active
+ENV UV_PROJECT_ENVIRONMENT=/app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONUNBUFFERED=1
 
 # Copy dependency files first (better caching)
-COPY "pyproject.toml" "uv.lock" ".python-version" ./
-# Install all dependencies (pandas, sqlalchemy, psycopg2)
-RUN uv sync --locked
+COPY pyproject.toml uv.lock .python-version ./
 
-# Copy ingestion script
-COPY ingest_data.py .
+# Install dependencies exactly as locked (no project install needed unless you want it)
+RUN uv sync --locked --no-dev
 
-# Set entry point to run the ingestion script
-ENTRYPOINT [ "python", "ingest_data.py" ]
+# Copy app code (include both scripts)
+COPY ingest_data.py zones.py ./
+
+# Default: run ingest_data.py (compose will override for zones_loader)
+ENTRYPOINT ["python", "ingest_data.py"]

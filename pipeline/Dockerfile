@@ -5,12 +5,12 @@ FROM python:3.13.11-slim
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 # Set working directory inside container
-WORKDIR /app
+WORKDIR /code
 
 # Make uv create the venv inside /app and make it active
-ENV UV_PROJECT_ENVIRONMENT=/app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONUNBUFFERED=1
+# ENV UV_PROJECT_ENVIRONMENT=/app/.venv
+ENV PATH="/code/.venv/bin:$PATH"
+# ENV PYTHONUNBUFFERED=1
 
 # Copy dependency files first (better caching)
 COPY pyproject.toml uv.lock .python-version ./

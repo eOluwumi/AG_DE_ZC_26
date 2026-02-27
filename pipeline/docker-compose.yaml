@@ -1,4 +1,79 @@
+version: "3.9"
+
+volumes:
+  ny_taxi_postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  kestra_postgres_data:
+    driver: local
+  kestra_data:
+    driver: local
+  kestra_tmp:
+    driver: local
+
 services:
+  # -------------------------
+  # Kestra + its Postgres
+  # -------------------------
+  kestra_postgres:
+    image: postgres:18
+    volumes:
+      - kestra_postgres_data:/var/lib/postgresql
+    environment:
+      POSTGRES_DB: kestra
+      POSTGRES_USER: kestra
+      POSTGRES_PASSWORD: k3str4
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+  kestra:
+    image: kestra/kestra:v1.1
+    pull_policy: always
+    user: "root"
+    command: server standalone
+    volumes:
+      - kestra_data:/app/storage
+      - /var/run/docker.sock:/var/run/docker.sock
+      - kestra_tmp:/tmp/kestra-wd
+    environment:
+      KESTRA_CONFIGURATION: |
+        datasources:
+          postgres:
+            url: jdbc:postgresql://kestra_postgres:5432/kestra
+            driverClassName: org.postgresql.Driver
+            username: kestra
+            password: k3str4
+        kestra:
+          server:
+            basicAuth:
+              username: "admin@kestra.io"
+              password: Admin1234!
+          repository:
+            type: postgres
+          storage:
+            type: local
+            local:
+              basePath: "/app/storage"
+          queue:
+            type: postgres
+          tasks:
+            tmpDir:
+              path: /tmp/kestra-wd/tmp
+          url: http://localhost:8080/
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    depends_on:
+      kestra_postgres:
+        condition: service_started
+
+  # -------------------------
+  # NY Taxi Postgres + pgAdmin
+  # -------------------------
   pgdatabase:
     image: postgres:18
     container_name: pgdatabase
@@ -16,15 +91,18 @@ services:
       interval: 3s
       timeout: 3s
       retries: 20
+    depends_on:
+      kestra:
+        condition: service_started
 
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com 
-      PGADMIN_DEFAULT_PASSWORD: root 
-      PGADMIN_CONFIG_PROXY_X_FOR_COUNT: 1 
-      PGADMIN_CONFIG_PROXY_X_HOST_COUNT: 1 
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: root
+      PGADMIN_CONFIG_PROXY_X_FOR_COUNT: 1
+      PGADMIN_CONFIG_PROXY_X_HOST_COUNT: 1
       PGADMIN_CONFIG_PROXY_X_PREFIX_COUNT: 1
     volumes:
       - pgadmin_data:/var/lib/pgadmin
@@ -35,11 +113,15 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # -------------------------
+  # Build-only image for loaders
+  # -------------------------
   taxi_ingest:
     build:
       context: .
       dockerfile: Dockerfile
     image: taxi_ingest:v001
+    profiles: ["build-only"]
 
   zones_loader:
     image: taxi_ingest:v001
@@ -47,7 +129,7 @@ services:
     depends_on:
       pgdatabase:
         condition: service_healthy
-    entrypoint: ["uv", "run", "python", "zones.py"]
+    entrypoint: ["python", "zones.py"]
     command:
       - "--pg-user=root"
       - "--pg-pass=root"
@@ -67,7 +149,7 @@ services:
         condition: service_healthy
       zones_loader:
         condition: service_completed_successfully
-    entrypoint: ["uv", "run", "python", "ingest_data.py"]
+    entrypoint: ["python", "ingest_data.py"]
     command:
       - "--pg-user=root"
       - "--pg-pass=root"
@@ -76,8 +158,14 @@ services:
       - "--pg-db=ny_taxi"
       - "--target-table=yellow_taxi"
       - "--chunksize=100000"
-    restart: "no"
-
-volumes:
-  ny_taxi_postgres_data:
-  pgadmin_data:
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"from sqlalchemy import create_engine,text; e=create_engine('postgresql://root:root@pgdatabase:5432/ny_taxi'); c=e.connect().execute(text('select count(*) from public.yellow_taxi')).scalar(); raise SystemExit(0 if c and c>0 else 1)\""
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    restart: "no" 

@@ -16,7 +16,7 @@ ENV PATH="/code/.venv/bin:$PATH"
 COPY pyproject.toml uv.lock .python-version ./
 
 # Install dependencies exactly as locked (no project install needed unless you want it)
-RUN uv sync --locked --no-dev
+RUN uv sync --locked
 
 # Copy app code (include both scripts)
 COPY ingest_data.py zones.py ./

@@ -100,7 +100,7 @@ services:
   # One-shot loaders (build the image here; no “taxi_ingest” service)
   # -------------------------
   zones_loader:
-    # profiles: ["load"]
+    profiles: ["load"]
     image: taxi_ingest:v001
     build:
       context: .
@@ -121,7 +121,7 @@ services:
     restart: "no"
 
   yellow_loader:
-    # profiles: ["load"]
+    profiles: ["load"]
     image: taxi_ingest:v001
     build:
       context: .

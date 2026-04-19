@@ -1,0 +1,7 @@
+PythonVersion="3.12.1"
+pythonBuildCommandsFile="/workspaces/.oryx/oryx-build-commands.txt"
+packagedir="/home/codespace/.local/lib/python3.12/site-packages"
+OperationId="476bc50bff52fe8b"
+SourceDirectoryInBuildContainer="/workspaces/AG_DE_ZC_26"
+PlatformName="python"
+CompressDestinationDir="false"

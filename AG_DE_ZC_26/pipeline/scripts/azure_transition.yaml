@@ -1,1 +1,0 @@
-enoch [ ~ ]$ az ad sp create-for-rbac --name kestra-sp-3 --role "Storage Blob Data Contributor" --scopes /subscriptions/0249a218-620d-47d7-8672-2d608e3fc481/resourceGroups/data-eng2-rg/providers/Microsoft.Storage/storageAccounts/okjenkestra2026 > azure-sp.jsonpipeline/scripts

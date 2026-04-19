@@ -1,7 +1,37 @@
-.codespaces/
-.oryx/
+pipeline/keys/
+*.json
+
+*.parquet
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.parquet
+
+# Virtual environments
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VSCode
 .vscode/
-.python-version
+
+# Env files
 .env
-.env-secrets
-.user-secrets.json
+
+# local docker volumes / db state
+pipeline/ny_taxi_postgres_data/
+pipeline/pgadmin_data/
+**/ny_taxi_postgres_data/
+**/pgadmin_data/
+**/pgdata/
+*.log
+pipeline/.env.bad
+.codespaces/
+.codespaces/
+.codespaces/shared/.env-secrets
